@@ -1,0 +1,96 @@
+use inventario_aula
+// vamos referenciar o mesmo banco de dados do semestre passado
+show dbs // mostra os bancos de dados ('seleciona + F6')
+show collections
+
+// criando a coleção empresa
+// sempre utilizar ({})
+
+db.empresa.insertOne({razao_social: 'IBM do Brasil Ltda',
+cnpj: 123456 , endereço: 'Rua Nazaré, 1568 - Sacomã' })
+
+// SELECT * FROM empresa
+db.empresa.find( {} )
+
+
+// Vamos apagar um dos IBMS específico - apagamos então o item com o id específico.
+db.empresa.deleteOne({"_id" : ObjectId("632c57f95895997f8a45d441")})
+
+// deletamos um valor que tenha IBM no nome
+// db.empresa.deleteOne({razao_social: /ibm/i})
+// Deletamos todos os valores que tenha IBM no nome
+// db.empresa.deleteMany({razao_social: /ibm/i})
+
+// Para inserir vários valores ao mesmo tempo, precisamos abrir um vetor [ ] e dentro desse vetor, adicionarmos os valores que desejamos inserir
+// utilizando {} para cada documento. No caso temos dois documentos inseridos, onde o segundo documento tem outro vetor [] com os valores dos telefones do Fornecedor
+
+
+db.empresa.insertMany([ {razao_social:'Microsoft do Brasil', cnpj: 678901, tipo:'Fabricante', endereço:{rua:'Vergueiro', número: 6000, bairro: 'Ipiranga'}, ano_fundação: 1977}, 
+    {razao_social: 'ABC Distribuidora Equipamentos Ltda', tipo:'Fornecedor', cnpj: 123987, fones: [1234, 45678, 9012]}  ])
+    
+    
+db.empresa.find( {} )
+
+
+// Buscando pelo bairro
+db.empresa.find({"endereço.bairro": {$regex: /Ipiranga/i} }) // $regex: é uma expressão regular
+
+// Buscando com AND
+db.empresa.find({"endereço.bairro": {$regex: /Ipiranga/i} , "endereço.rua": {$regex: /verg/i } })
+
+// Usando o OR agora
+db.empresa.find( { $or: [{"endereço.bairro": /Ipiranga/i} , {"endereço.rua": /naza/i }] })
+
+
+// Buscando pelo bairro - negação $not, $ne
+db.empresa.find({"endereço.bairro": {$not: /Ipiranga/i} })
+
+// Atualizando o endereço do ABC e adicionando o telefone dentro do campo endereço o.O'
+db.empresa.updateOne({razao_social: /ABC/i} , {$set:{endereço:{rua: "Frei João", número: 90, cep: 12345, fones: [554433, 221199]}}})
+
+// tratamento dos vetores. Incluindo dois novos numeros de telefone para ABC Distribuidora (precisamos do $push e do $each)
+db.empresa.updateOne({razão_social: /abc/i},{$push : {"endereço.fones": {$each: [554422, 221199] } }})
+
+// atualizando um dos números de telefone
+db.empresa.find({razao_social: /abc/i , "endereço.fones" : 221199 })
+db.empresa.updateOne({razao_social: /abc/i , "endereço.fones": 221199} , {$set : {"endereço.fones.$": 4477788} })
+
+db.empresa.find({razao_social: /abc/i , "endereço.fones" : 4477788 }) // telefone atualizado com sucesso. Altera o valor de 221199 pelo valor de 4477788
+
+
+// excluindo um elemento do vetor $pull
+db.empresa.updateOne({razao_social: /abc/i} , {$pull: {"endereço.fones": 554433} })
+
+// incluindo os telefones com estruturas (vetor com dicionários embutidos)
+db.empresa.updateOne({razao_social: /micro/i } , {$set : {fones: [{ddd: 11, número: 12345789, tipo: "comercial"}, 
+                                                                  {ddd: 11, número: 4567112, tipo: "celular", contato: "Chico"}]} })
+
+
+
+// consultando dentro da estrutura
+db.empresa.find({"fones.contato": /chico/i })
+
+
+// ATIVIDADE 1 (mongo)
+
+// A)
+db.software.insertMany([ {nome_software: "Anaconda", versao: 3.9, tipo:'Lingagem de Programação'},
+                         {nome_software:'MongoDB', info_software:{versao:6.0, tipo:"Banco de dados NoSQL orientado a documentos"}}  
+                         {nome_software:'Power BI', software_descricao:{v: 3.0, tipo:'software selfservice'}}  ])              
+
+// B)
+
+db.departamento.insertMany([{nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
+                            {nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
+
+
+// C
+
+db.software.find({tipo: /operacional/i})
+
+D // 
+
+db.departamento.find({nome:/ção/i})
+
+
+

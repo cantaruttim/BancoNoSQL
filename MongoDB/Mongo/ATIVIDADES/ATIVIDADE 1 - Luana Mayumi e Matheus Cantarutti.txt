@@ -1,0 +1,20 @@
+// ATIVIDADE 1 (mongo)
+
+// A)
+db.software.insertMany([ {nome_software: "Anaconda", versao: 3.9, tipo:'Lingagem de Programação'},
+                         {nome_software:'MongoDB', info_software:{versao:6.0, tipo:"Banco de dados NoSQL orientado a documentos"}}  
+                         {nome_software:'Power BI', software_descricao:{v: 3.0, tipo:'software selfservice'}}  ])              
+
+// B)
+
+db.departamento.insertMany([{nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
+                            {nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
+
+
+// C
+
+db.software.find({tipo: /operacional/i})
+
+D // 
+
+db.departamento.find({nome:/ção/i})
