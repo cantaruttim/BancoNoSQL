@@ -24,7 +24,7 @@ db.empresa.deleteOne({"_id" : ObjectId("632c57f95895997f8a45d441")})
 // Para inserir vários valores ao mesmo tempo, precisamos abrir um vetor [ ] e dentro desse vetor, adicionarmos os valores que desejamos inserir
 // utilizando {} para cada documento. No caso temos dois documentos inseridos, onde o segundo documento tem outro vetor [] com os valores dos telefones do Fornecedor
 
-
+db.empresa.drop()
 db.empresa.insertMany([ {razao_social:'Microsoft do Brasil', cnpj: 678901, tipo:'Fabricante', endereço:{rua:'Vergueiro', número: 6000, bairro: 'Ipiranga'}, ano_fundação: 1977}, 
     {razao_social: 'ABC Distribuidora Equipamentos Ltda', tipo:'Fornecedor', cnpj: 123987, fones: [1234, 45678, 9012]}  ])
     
@@ -74,24 +74,171 @@ db.empresa.find({"fones.contato": /chico/i })
 // ATIVIDADE 1 (mongo)
 
 // A)
-db.software.insertMany([ {nome_software: "Anaconda", versao: 3.9, tipo:'Lingagem de Programação'},
-                         {nome_software:'MongoDB', info_software:{versao:6.0, tipo:"Banco de dados NoSQL orientado a documentos"}}  
-                         {nome_software:'Power BI', software_descricao:{v: 3.0, tipo:'software selfservice'}}  ])              
+db.software.drop()
+db.software.insertMany([ {id: 'ANA3', nome_software: "Anaconda", versao: 3.9, tipo:'Lingagem de Programação'},
+                         {id: 'MONDB', nome_software:'MongoDB', info_software:{versao:6.0, tipo:"Banco de dados NoSQL orientado a documentos"}}  
+                         {id: 'POWBI', nome_software:'Power BI', software_descricao:{v: 3.0, tipo:'software selfservice'}}  ])              
 
 // B)
+db.departamento.drop()
+db.departamento.find({})
 
-db.departamento.insertMany([{nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
-                            {nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
-        // OBS¹
+db.departamento.insertMany([{id: 10, nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
+                            {id: 20, nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
+        // OBS¹ $ne não funciona com texto
+db.departamento.find({nome: {$ne: 'implementação'}})
 db.departamento.find({nome: {$not: /desenvolvi/i}})
 
 // C
-db.software.find({tipo: /operacional/i})
+db.software.find({tipo: {$not: /oper/i}}) // trás todos os campos
+db.software.find({tipo: /oper/i}) // aquele que sao do tipo sistema operacional
 
 D // 
 db.departamento.find({nome:/ção/i})
 
 // AULA 29-09
+// vamos cadastrar os equipamentos
+
+db.equipamento.drop()
+db.equipamento.insert({patrimonio: 100, modelo: 'ThinkPad 1000', tipo: 'Computador', caracteristicas: {processador: 'I7',
+                        velocidade_ghz: 3.2, ram_gb: 16, armazenamento_gb: 1000 }})
+
+db.equipamento.insert({patrimonio: 101, modelo: 'Edson 1100', tipo: 'Periferico', categoria: 'Impressora', caracteristicas: {ppm : 20, tipo: 'Jato de Tinta Colorida',
+                        resolucao_dpi: 1200, tamanho_max_papel: 'A3'}})
+                        
+// incluindo o campo tipo no computador:
+db.equipamento.updateOne({patrimonio: 100},{$set: {categoria: 'Notebook'}})
+
+// colocando as informações técnicas dentro de características, podemos obter todas as informações de uma vez quando realizarmos um .find()
+db.equipamento.find({})
+
+
+// incluir o fornecedor-fornecimento no equipamento 101
+db.empresa.find({tipo: /fornece/i})
+db.empresa.deleteOne({"_id": ObjectId("63358d98846eb17fb546b745"})
+db.empresa.deleteOne({"_id" : ObjectId("63358d98846eb17fb546b744")})
+
+// inclusindo o endereço para o ABC
+// sempre que fizermos um update a boa prática é realizar um find primeiro
+db.empresa.find({tipo: /fornec/i, razao_social: /abc/i})
+db.empresa.updateOne({tipo: /fornec/i, razao_social: /abc/i},{$set: {endereço: {logradouro: 'Silva Bueno', número: 1200,
+                                            bairro: 'Ipiranga', cidade: 'São Paulo'}}})
+
+// relacionando equipamento com o fornecedor
+// para cadastrar data: new Date()
+db.equipamento.updateOne({patrimonio: 101}, {$set: {fornecimento:{fornecedor_cnpj: 123987, data_aquisição:ISODate("2022-03-10T14:22:15.333Z"), 
+                            valor_aquisição:1800.99, 
+                            nota_fiscal: 'F0123', 
+                            garantia: 24}}})
+
+
+db.equipamento.update({patrimonio: 101}, {$unset: {fornecimento: ""}})
+
+db.equipamento.find()
+
+// relacionando as duas coleções - AGGREGATE --> JOIN
+
+db.equipamento.aggregate(
+    
+    { $lookup: 
+        { // faz a agregação
+           from: "empresa",
+           localField: "fornecimento.fornecedor_cnpj", // campo local de equipamento (tabela de inicio)
+           foreignField: "cnpj", // campo vem do cnpj da empresa
+           as: "fornecedor_equipamento" // nomeando uma nova coleção temporária.
+         }
+        
+    })
+
+
+// quais são os equipamentos fornecidos por uma empresa?
+
+db.empresa.aggregate(
+    
+    { $lookup: 
+        { // faz a agregação
+           from: "equipamento",
+           localField: "cnpj", // campo local de equipamento (tabela de inicio)
+           foreignField: "fornecimento.fornecedor_cnpj", // campo vem do cnpj da empresa
+           as: "equipamentos_fornecidos" // nomeando uma nova coleção temporária.
+         }
+        
+    })
+
+
+// Colocando filtros
+// na empresa estamos filtrando apenas quem é fornecedor utilizando o match que é equivalente ao WHERE no SQL
+db.empresa.aggregate(
+    {$match: {tipo: /fornec/i}}, 
+    
+    { $lookup: 
+        { // faz a agregação
+           from: "equipamento",
+           localField: "cnpj", // campo local de equipamento (tabela de inicio)
+           foreignField: "fornecimento.fornecedor_cnpj", // campo vem do cnpj da empresa
+           as: "equipamentos_fornecidos" // nomeando uma nova coleção temporária.
+         }
+        
+    },
+
+// a função $unwind é utilizada para desaninhar um documento aninhado, e após isso, projetamos apenas as colunas que queremos ver.
+{$unwind: "$equipamentos_fornecidos"},
+    {$match: {"equipamentos_fornecidos.categoria": /impres/i}}
+    {$project: {_id: 0, razao_social: 1, // 1 para mostrar, 0 para não mostrar
+                "equipamentos_fornecidos.modelo": 1,
+                "equipamentos.tipo": 1 } }
+    }
+    
+)
+
+// relacionando equipamento 100 com o fornecedor
+db.equipamento.updateOne({patrimonio: 100},{$set:{fornecimento: {fornecedor_cnpj: 123987,
+                                                                data_aquisição: new Date(),
+                                                                valor_aquisição: 7000.00,
+                                                                nota_fiscal: 'F0124',
+                                                                garantia: 24 }}})
+                                                                
+// relacionando o computador com os softwares instalados
+db.software.find()
+db.equipamento.find()
+db.equipamento.updateOne({patrimonio: 100, tipo: /comp/i}, 
+                        {$set: {softwares_instalados: [{id_software: 'WIN11', licença: '123XYZ' dt_hora_instalação: new Date(), fabricante_cnpj: 678901}, 
+                                                       {id_software: 'ORA21', licença: 'KYW123', dt_hora_instalação: new Date()}] 
+    
+} } )    
+
+// Consulta mostrando os softwares instalados
+
+db.equipamento.aggregate(
+    
+    {$lookup: 
+        {  from: "software",
+           localField: "softwares_instalados.id_software",
+           foreignField: "id",
+           as: "instalação_software"
+        }}
+    
+
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
