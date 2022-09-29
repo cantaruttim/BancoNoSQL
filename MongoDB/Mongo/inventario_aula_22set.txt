@@ -1,7 +1,7 @@
 use inventario_aula
 // vamos referenciar o mesmo banco de dados do semestre passado
 show dbs // mostra os bancos de dados ('seleciona + F6')
-show collections
+
 
 // criando a coleção empresa
 // sempre utilizar ({})
@@ -82,15 +82,17 @@ db.software.insertMany([ {nome_software: "Anaconda", versao: 3.9, tipo:'Lingagem
 
 db.departamento.insertMany([{nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
                             {nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
-
+        // OBS¹
+db.departamento.find({nome: {$not: /desenvolvi/i}})
 
 // C
-
 db.software.find({tipo: /operacional/i})
 
 D // 
-
 db.departamento.find({nome:/ção/i})
+
+// AULA 29-09
+
 
 
 
