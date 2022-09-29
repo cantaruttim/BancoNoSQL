@@ -208,26 +208,48 @@ db.equipamento.updateOne({patrimonio: 100, tipo: /comp/i},
 } } )    
 
 // Consulta mostrando os softwares instalados
+db.equipamento.aggregate(
+{$lookup:
+	{from : "software",
+	 localField : "softwares_instalados.id_softw",
+	 foreignField: "id",
+	 as : "instalação_softw"
+    }
+} )
+// mostrar os softwares e fornecedor
+db.equipamento.aggregate(
+// junção com software
+{$lookup:
+	{from : "software",
+	 localField : "softwares_instalados.id_softw",
+	 foreignField: "id",
+	 as : "instalação_softw" } },
+//junção com fornecedor
+{ $lookup :
+	{from: "empresa" ,
+	 localField: "fornecimento.fornecedor_cnpj" ,
+	 foreignField: "cnpj",
+	 as: "fornecedor_eqpto"	} } )
+// mostrar os softwares e fornecedor, filtrando
 
 db.equipamento.aggregate(
-    
-    {$lookup: 
-        {  from: "software",
-           localField: "softwares_instalados.id_software",
-           foreignField: "id",
-           as: "instalação_software"
-        }}
-    
-
-)
-
-
-
-
-
-
-
-
+// junção com software
+{$lookup:
+	{from : "software",
+	 localField : "softwares_instalados.id_software",
+	 foreignField: "id",
+	 as : "instalação_softw" } },
+//junção com fornecedor
+{ $lookup :
+	{from: "empresa" ,
+	 localField: "fornecimento.fornecedor_cnpj" ,
+	 foreignField: "cnpj",
+	 as: "fornecedor_eqpto"	} },
+	{$unwind: "$instalação_software"},
+	{$unwind: "$fornecedor_eqpto"},
+	{$project: {_id:0, patrimonio: 1, modelo:1,
+	  "instalação_software.nome" :1, "instalação_software.versão" :1,
+	"fornecedor_equipamento.razao_social": 1, "fornecedor_equipamento.fones": 1 } )
 
 
 
