@@ -252,15 +252,50 @@ db.equipamento.aggregate(
 	"fornecedor_equipamento.razao_social": 1, "fornecedor_equipamento.fones": 1 } )
 
 
+// ATIVIDADE 2 (Mongo)
 
 
 
 
 
+// C -  Faça uma consulta que mostre os seguintes dados do computador : patrimonio, marca, processador, nome dos softwares 
+// instalados, data de instalação, versão e número da licença.
+db.equipamento.find()
+db.equipamento.aggregate(
+    {$match: {"equipamento": /comput/i}}
+
+    {$lookup: {
+           from: "software",
+           localField: "softwares_instalados.id_software",
+           foreignField: "id",
+           as: "dados_computador"
+         }
+    }
+    
+    {$unwind: "$softwares_instalados"}
+    {$unwind: "$caracteristicas"}
+    {$project: {patrimonio: 1, "softwares_instalados.fabricante_cnpj": 1, "caracteristicas.processador": 1, nome_software:1, "softwares_instalados.dt_hora_instalação": 1,
+    "softwares_instalados.licença":1}} 
+
+)
+
+// D - Faça uma consulta que mostre os seguintes dados do departamento : nome, centro de custos, patrimonio e modelo dos 
+// computadores alocados e a data de alocação
 
 
-
-
+db.departamento.aggregate(
+    
+    {$lookup: 
+        {
+           from: "equipamento",
+           localField: "departamento.id",
+           foreignField: "softwares_instalados.id_software",
+           as: "departamento_softwares_instalados"
+         }
+    
+    }
+    
+)
 
 
 
