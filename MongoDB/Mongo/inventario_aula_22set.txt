@@ -99,12 +99,18 @@ db.departamento.find({nome:/ção/i})
 // AULA 29-09
 // vamos cadastrar os equipamentos
 
+db.equipamento.find()
+
 db.equipamento.drop()
 db.equipamento.insert({patrimonio: 100, modelo: 'ThinkPad 1000', tipo: 'Computador', caracteristicas: {processador: 'I7',
                         velocidade_ghz: 3.2, ram_gb: 16, armazenamento_gb: 1000 }})
 
 db.equipamento.insert({patrimonio: 101, modelo: 'Edson 1100', tipo: 'Periferico', categoria: 'Impressora', caracteristicas: {ppm : 20, tipo: 'Jato de Tinta Colorida',
                         resolucao_dpi: 1200, tamanho_max_papel: 'A3'}})
+                        
+                        
+db.equipamento.insert({patrimonio: 102, modelo: 'Light Keyboard', tipo: 'Periferico', categoria: 'Teclado', caracteristicas: {anatomia: "funcional", tipo: 'USB Keyboard',
+                        precisao_teclas: 100, tamanho_max_teclas: '60 inch'}})
                         
 // incluindo o campo tipo no computador:
 db.equipamento.updateOne({patrimonio: 100},{$set: {categoria: 'Notebook'}})
@@ -115,8 +121,8 @@ db.equipamento.find({})
 
 // incluir o fornecedor-fornecimento no equipamento 101
 db.empresa.find({tipo: /fornece/i})
-db.empresa.deleteOne({"_id": ObjectId("63358d98846eb17fb546b745"})
-db.empresa.deleteOne({"_id" : ObjectId("63358d98846eb17fb546b744")})
+// db.empresa.deleteOne({"_id": ObjectId("63358d98846eb17fb546b745"})
+// db.empresa.deleteOne({"_id" : ObjectId("63358d98846eb17fb546b744")})
 
 // inclusindo o endereço para o ABC
 // sempre que fizermos um update a boa prática é realizar um find primeiro
@@ -257,25 +263,40 @@ db.equipamento.aggregate(
 // A -- Altere a estrutura de equipamento para referenciar os departamentos em que o computador foi alocado (dois departamentos, um 
 // que já alocou e desalocou e o atual em que está alocado);
 
-
-
-
-
-
-
-
-
-
 // B - Altere a estrutura de equipamento para referenciar os periféricos instalados nos computadores atualmente, com a data de 
 // instalação (dois periféricos no computador cadastrado em aula, se necessário cadastre mais um periférico)
 
+db.equipamento.find()
+db.departamento.find()
 
+// Para lembrar como departamento foi construido 
+db.departamento.insertMany([{id: 10, nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
+                            {id: 20, nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
+                            
+// db.equipamento.deleteOne({ObjectId("63379daf1476d3507a4ca750")}) // -- deletei um registro a mais do patrimonio 101
+// precisamos atualizar equipamento para saber em qual departamento ele estpa alocado (id)
 
+// para alterar a estrutura de equipamento vamos utilizar o código a seguir:
 
+db.equipamento.updateOne({patrimonio: 101}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 102}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 100}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
 
+db.equipamento.updateOne({patrimonio: 100}, {$set: {departamento_alocado:{departamento_id: 20, data_alocacao: new Date() }}})
 
+db.equipamento.find()
 
+// Para completar a parte dos periféricos. Vamos inserir um mouse no em equipamentos
 
+db.equipamento.insert({patrimonio: 103, modelo: 'Mouse Vertical', tipo: 'Periferico', categoria: 'Mouse', caracteristicas: {anatomia: "funcional", tipo: 'USB',
+                        precisao_teclas: 100, tamanho_max: 'anatômico'}})
+
+db.equipamento.find()
+
+db.equipamento.updateOne({patrimonio: 103}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 103}, {$set: {departamento_alocado:{departamento_id: 20, data_alocacao: new Date() }}})
+
+db.equipamento.find()
 
 
 // C -  Faça uma consulta que mostre os seguintes dados do computador : patrimonio, marca, processador, nome dos softwares 

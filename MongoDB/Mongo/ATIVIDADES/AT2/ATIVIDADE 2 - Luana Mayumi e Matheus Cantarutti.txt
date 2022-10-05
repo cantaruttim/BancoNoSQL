@@ -1,0 +1,99 @@
+// ATIVIDADE 2 (Mongo)
+
+// A -- Altere a estrutura de equipamento para referenciar os departamentos em que o computador foi alocado (dois departamentos, um 
+// que já alocou e desalocou e o atual em que está alocado);
+
+// B - Altere a estrutura de equipamento para referenciar os periféricos instalados nos computadores atualmente, com a data de 
+// instalação (dois periféricos no computador cadastrado em aula, se necessário cadastre mais um periférico)
+
+db.equipamento.find()
+db.departamento.find()
+
+// Para lembrar como departamento foi construido 
+db.departamento.insertMany([{id: 10, nome:'Recursos Humanos, RH', centro_custo:56, localizacao:{endereco:{rua:'Alencar Araripe', numero:1258, bairro:'Sacomã'}}, fones:{ramal: 2557}}, 
+                            {id: 20, nome: 'Desenvolvimento e Implementação', descricao:{centro_custo: 57, localizacao:'Rua Itapeva, 250, Ipiranga'}, fones:{ramal:2558}} ])
+                            
+// db.equipamento.deleteOne({ObjectId("63379daf1476d3507a4ca750")}) // -- deletei um registro a mais do patrimonio 101
+// precisamos atualizar equipamento para saber em qual departamento ele estpa alocado (id)
+
+// para alterar a estrutura de equipamento vamos utilizar o código a seguir:
+
+db.equipamento.updateOne({patrimonio: 101}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 102}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 100}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+
+db.equipamento.updateOne({patrimonio: 100}, {$set: {departamento_alocado:{departamento_id: 20, data_alocacao: new Date() }}})
+
+db.equipamento.find()
+
+// Para completar a parte dos periféricos. Vamos inserir um mouse no em equipamentos
+
+db.equipamento.insert({patrimonio: 103, modelo: 'Mouse Vertical', tipo: 'Periferico', categoria: 'Mouse', caracteristicas: {anatomia: "funcional", tipo: 'USB',
+                        precisao_teclas: 100, tamanho_max: 'anatômico'}})
+
+db.equipamento.find()
+
+db.equipamento.updateOne({patrimonio: 103}, {$set: {departamento_alocado:{departamento_id: 10, data_alocacao: new Date() }}})
+db.equipamento.updateOne({patrimonio: 103}, {$set: {departamento_alocado:{departamento_id: 20, data_alocacao: new Date() }}})
+
+db.equipamento.find()
+
+
+// C -  Faça uma consulta que mostre os seguintes dados do computador : patrimonio, marca, processador, nome dos softwares 
+// instalados, data de instalação, versão e número da licença.
+db.equipamento.find()
+db.software.find()
+
+db.equipamento.aggregate(
+    {$match: {tipo: /comp/i}}
+    {$lookup: {
+           from: "software",
+           localField: "equipamento.patrimonio",
+           foreignField: "software.id",
+           as: "software_instalados"
+         }
+    
+    {$unwind: "$softwares_instalados"}
+    {$unwind: "$caracteristicas"}
+    {$project: {patrimonio: 1, "fornecimento.fornecedor_cnpj":1, "caracteristicas.processador": 1, 
+        "softwares_instalados.id_software":1, "softwares_instalados.licença":1, "software.versao":1 } }
+
+)
+
+// D - Faça uma consulta que mostre os seguintes dados do departamento : nome, centro de custos, patrimonio e modelo dos 
+// computadores alocados e a data de alocação
+
+db.departamento.find()
+db.equipamento.find()
+db.software.find()
+db.departamento.aggregate(
+    {$match: {tipo: /comp/i}}
+    {$lookup: 
+        {
+           from: "equipamento",
+           localField: "departamento.id",
+           foreignField: "softwares_instalados.id_software",
+           as: "departamento_softwares_instalados"
+         }
+        
+    }
+    {$lookup: 
+        {
+           from: "software",
+           localField: "departamento.id",
+           foreignField: "softwares_instalados.id_software",
+           as: "departamento_softwares_instalados"
+         }
+        
+    }
+         {$unwind: "$equipamento.fornecimento"}
+         {$unwind: "$softwares_instalados"}
+
+         {$project: {nome: 1, centro_custo: 1, "equipamento.patrimonio": 1, "equipamento.modelo":1,
+             "fornecimento.dt_hora_instalação":1}
+         }
+         
+    
+    }
+    
+)
