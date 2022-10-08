@@ -1,0 +1,84 @@
+use selecao_prova
+
+show dbs
+
+// Inserindo dados nas tabelas
+
+db.selecao.insertMany([ {id_selecao: 10, pais: "Brasil", 
+                        titulos:
+                            {atual:"5 mundiais", 
+                            quantidade_campea_anos:[1958, 1962, 1970, 1994, 2002]}, 
+                        colocao_ultimo_mundial: "Quartas de Final",
+                        continente: "América do Sul", quantidade_participacoes: 19}, 
+                        {id_selecao: 20, pais: "Itália",
+                         titulos:
+                            {atual:"4 mundiais",
+                            quantidade_campea_anos:[1934, 1938, 1982, 2006]},
+                        colocacao_ultimo_mundial: "Quartas de Final",
+                        continente: "Europeu", quantidade_participacoes: 18,
+                        } ])
+                        
+db.selecao.find()
+
+db.jogador.insertMany([{id_jogador: 1, nome_popular: "Weverton", nome: "Weverton Pereira da Silva",
+                        data_nascimento: "13/12/1987", local_nascimento:{pais: "Brasil", estado: "Acre"},
+                        posicao: "goleiro", id_selecao: 10, id_time: 100},
+                        {id_jogador: 2, nome_popular: "Guedes", nome: "Róger Guedes",
+                        data_nascimento: "02/10/1996", local_nascimento:{pais: "Brasil", estado: "Rio Grande do Sul"},
+                        posicao: "ponta esquerda", id_selecao: 10, id_time: 101}])
+db.jogador.insertOne({id_jogador: 3, nome_popular: "Algusto", nome: "Algusto de Pádua",
+                        data_nascimento: "02/10/1985", local_nascimento:{pais: "Itália", estado: "Milão"},
+                        posicao: "defesa", id_selecao: 20, id_time: 100})
+                        
+db.jogador.find()
+
+db.time.insertMany([{id_time: 100, nome: "Palmeiras", pais: "Brasil", ano_fundacao: 1914}, 
+                    {id_time: 101, nome:"corinthians", pais: "Brasil", ano_fundacai: 1910}])
+                    
+db.time.insertOne({id_time: 100, nome: "Milan", pais: "Itália", ano_fundacao: 1910})
+
+
+db.time.find()
+
+// questão 4
+
+db.jogador.aggregate(
+    {$match: {posicao: {$not: /gol/i}}},
+    {$lookup: {
+           from: "jogador",
+           localField: "johador.id_jogador",
+           foreignField: "id_time",
+           as: "dados_jogador"
+         }
+    },
+    {$project: {nome:1, data_nascimento:1, posicao:1}}
+    
+)
+
+// questão 8
+// Mostre o país da seleção, nome e posição do jogador e nome do time em que atua para países diferentes do  continente asiático ou sul-americano.
+
+
+db.selecao.aggregate(
+    {$match: {$and: [{continente: {$not: /asiático/i}}, {continente: {$not: /américa do sul/i}}]}},
+    
+    {$lookup: {
+           from: "selecao",
+           localField: "selecao.id_selecao",
+           foreignField: "jogador.id_jogador",
+           as: "jogador_selecao"
+         }
+    },
+    {$lookup: {
+           from: "selecao",
+           localField: "selecao.id_selecao",
+           foreignField: "time.id_time",
+           as: "jogador_time"
+         }
+    },
+    // {$unwind: "$jogador.nome"},
+    // {$unwind: "$time.nome"},
+    {$project: {pais:1, 'jogador.nome':1, "jogador.posicao":1, "time.nome":1}}
+
+)
+
