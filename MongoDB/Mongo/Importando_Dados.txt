@@ -1,7 +1,0 @@
-use Import_Dados // Importando dados
-
-db.teste.insert({Nome: 'X'})
-// cd "Program Files" > MongoDB > Server > 6.0 > bin
-
-db.movie.find()
-
