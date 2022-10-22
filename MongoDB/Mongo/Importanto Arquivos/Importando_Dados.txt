@@ -4,4 +4,213 @@ db.teste.insert({Nome: 'X'})
 // cd "Program Files" > MongoDB > Server > 6.0 > bin
 
 db.movie.find()
+db.actor.find()
+
+// para renomear um campo
+
+db.movie.update({}, {$rename: {"year": "ano_lancamento"}}, false, true)
+db.movie.find()
+
+// FUNÇÕES DE GRUPO:
+// count
+
+db.movie.count() // 62058
+db.movie.countDocuments() // "62058" : Retorna apenas documento preenchido
+db.movie.find().count() // 62058 > procura depois conta
+
+db.movie.aggregate({$count: "filmes listados"}) // temos um operador chamado $count 
+
+// utilizando a função grupo para realizar agrupamento.
+db.movie.aggregate(
+    
+    {$group: { _id: null, // aqui estou agrupando por nenhum critério, pois o id é nulo
+               countagem: {$count: {} } // contagem seria uma label
+            }}
+)
+
+db.movie.aggregate(
+    
+    {$group: { _id: "tagline", 
+               countagem_títulos: {$count: {} } // contagem seria uma label
+            }}
+)
+
+// contando com critério de agrupamento
+// em ordem descrente do ano que tem a maior quantidade de filmes para a menor quantidade
+db.movie.aggregate(
+    
+    {$group: { _id: "$ano_lancamento", 
+               countagem_por_ano: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {contagem_por_ano: -1} }
+)
+
+// agrupando pelo ano lancamento e agrupando pelo _id
+db.movie.aggregate(
+    
+    {$group: { _id: "$ano_lancamento", 
+               countagem_por_ano: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {_id: -1} }
+)
+
+db.movie.aggregate(
+    
+    {$group: { _id: "$genre", 
+               contagem_por_genero: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {contagem_genero: -1} }
+)
+
+// mostrando o tipo de gênero existente dentro do array => visualização!
+db.movie.aggregate(
+    
+    {$group: { _id: { gênero: "$genre"}, 
+               contagem_por_genero: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {contagem_genero: -1} }
+)
+
+// filtrando por país 
+db.movie.aggregate(
+    
+    {$group: { _id: { país: "$countries"}, 
+               contagem_por_genero: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {contagem_por_pais: -1} }
+)
+
+// podemos adicionar filtros
+
+db.movie.aggregate(
+    {$match: {"countries": /braz/i} },
+    {$group: { _id: { país: "$countries"}, 
+               contagem_por_pais: {$count: {} } // contagem seria uma label
+            }},
+            {$sort: {contagem_por_pais: -1} }
+)
+
+// contando o menor e o maior ano de lançamento de filmes
+
+db.movie.aggregate(
+    {$group: { _id: null, 
+               contagem : {$count: {} }, // contagem seria uma label
+                menor_ano : {$min: "$ano_lancamento"},
+                maior_ano : {$max:"$ano_lancamento"}
+}} )
+
+
+db.movie.aggregate(
+    {$group: { _id: null, 
+               contagem : {$count: {} }, // contagem seria uma label
+                menor_votação : {$min: "$votes"},
+                maior_votação : {$max:"$votes"},
+                media_votação : {$avg: "$votes"},
+                soma_votação : {$sum: "$votes"}
+}} )
+
+// observe que temos a soma e a média como zero e nullo
+// precisamos descubrir o que é diferente de nulo
+// cada voto é convertido para inteiro assim podemos realizar a somatória e a média dos valores
+
+
+db.movie.find({votes: {$ne : null}}).forEach ( function (doc) {
+    doc.votes = parseInt(doc.votes) ;
+    db.movie.save(doc) })
+
+// agrupando por mais de um campo - por país e gênero
+db.movie.aggregate(
+    {$group: { _id: {país:  "$countries" , gen: "$genre"},
+              contagem_pais_genero : {$count: {} } } },
+    {$project : {gênero: "$_id.gen" , país: "$_id.país" ,       
+                 contagem_pais_genero : 1, _id: 0 } },
+              {$sort: {contagem_pais_genero : -1 } } ) 
+
+
+// filtro no agrupamento
+db.movie.aggregate(
+    {$match: {"countries" : /USA/i}},
+    {$group: { _id: {país:  "$countries" , gen: "$genre"},
+              contagem_pais_genero : {$count: {} } } },
+    {$match: {contagem_pais_genero : {$gte: 5000} } }, 
+    {$project : {gênero: "$_id.gen" , país: "$_id.país" ,       
+                 contagem_pais_genero : 1, _id: 0 } },
+              {$sort: {contagem_pais_genero : -1 } } ) 
+
+// tamanho de elenco 
+db.movie.aggregate( [
+    {$project : {tamanho_elenco: {$size: "$actors" }}},
+    {$group: {_id: "$tamanho_elenco",
+              count_tamanho: {$count: {}}}},
+    {$sort: {_id: -1}} ]) 
+
+
+// ATIVIDADE 3 (Mongo):
+
+// a) Mostre a contagem de filmes por Diretor. Mostre o nome(s) do(s) diretor(es) quando tiverem no máximo 2
+
+db.movie.find()
+
+db.movie.aggregate(
+    
+    {$group: { _id: { diretor: "$directors"}, 
+               contagem_por_diretor: {$count: {} } 
+            }},
+            {$match: {contagem_por_diretor : {$gte: 2} } },
+            {$sort: {contagem_genero: -1} }
+)
+
+// b) Mostre a contagem de filmes por país e idioma
+
+db.movie.aggregate(
+    {$group: { _id: {país:  "$countries" , idioma: "$languages"},
+              contagem_pais_idioma : {$count: {} } } },
+              {$project : { país: "$_id.país", idioma : "$_id.idioma" ,
+              contagem_país_idioma: 1, _id : 0 } },
+              {$sort: {contagem_pais_idioma : -1 } } 
+
+) 
+
+// c) Mostre a quantidade de filmes por gênero em que atuou o ator Robert de Niro.
+
+db.movie.find()
+
+db.movie.aggregate(
+    
+    {$match: {"actors" : /robert de niro/i}},
+    {$group: {_id : {gênero : "$genre"},
+        contagem_por_genero: {$count: {} }} },
+        {$sort: {contagem_por_genero : -1 } }  )
+
+// d) Mostre o total de votos por Gênero de filme com mais de 10 mil votos
+
+
+db.movie.aggregate(
+    
+    {$group: {_id : {gênero : "$genre", votos : "$votes"},
+        contagem_votos: {$count: {} }} },
+       // {$match: {contagem_votos : {$gte: 10000} } },
+        {$sort: {contagem_votos : -1 } }  
+)
+
+// não temos então uma quantidade de votos igual ou superior a 10k. 
+
+
+// e) Mostre os 10 filmes com maior elenco, título e quantidade do elenco
+
+db.movie.find()
+db.movie.aggregate( [
+    {$project : {tamanho_elenco: {$size: "$actors" }}}
+    {$group: { _id: { título: "$title", elenco: "$actors", 
+               contagem: {$count: {} }}},
+            {$match: {contagem_por_diretor : {$gte: 10} } },
+            {$sort: {contagem_genero: -1} }
+            ]
+)
+
+
+
+
+
+
 
