@@ -2,7 +2,7 @@
 mongoimport --jsonArray --db Import_Dados --collection movie --file c:\data\movie.json
 
 // funcionou
-mongoimport --db Import_Dados -- collection actor --type csv --headerline --file c:\data\IMDb_names.csv
+mongoimport --db Import_Dados --collection actor --type csv --headerline --file c:\data\IMDb_names.csv
 
 
 db.movie.aggregate([
