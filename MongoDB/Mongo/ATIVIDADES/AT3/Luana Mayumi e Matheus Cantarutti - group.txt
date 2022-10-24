@@ -1,0 +1,65 @@
+
+// ATIVIDADE 3 (Mongo):
+
+// a) Mostre a contagem de filmes por Diretor. Mostre o nome(s) do(s) diretor(es) quando tiverem no máximo 2
+
+db.movie.find()
+
+db.movie.aggregate(
+    
+    {$group: { _id: { diretor: "$directors"}, 
+               contagem_por_diretor: {$count: {} } 
+            }},
+            {$match: {contagem_por_diretor : {$gte: 2} } },
+            {$sort: {contagem_genero: -1} }
+)
+
+// b) Mostre a contagem de filmes por país e idioma
+
+db.movie.aggregate(
+    {$group: { _id: {país:  "$countries" , idioma: "$languages"},
+              contagem_pais_idioma : {$count: {} } } },
+              {$project : { país: "$_id.país", idioma : "$_id.idioma" ,
+              contagem_país_idioma: 1, _id : 0 } },
+              {$sort: {contagem_pais_idioma : -1 } } 
+
+) 
+
+// c) Mostre a quantidade de filmes por gênero em que atuou o ator Robert de Niro.
+
+db.movie.find()
+
+db.movie.aggregate(
+    
+    {$match: {"actors" : /robert de niro/i}},
+    {$group: {_id : {gênero : "$genre"},
+        contagem_por_genero: {$count: {} }} },
+        {$sort: {contagem_por_genero : -1 } }  )
+
+// d) Mostre o total de votos por Gênero de filme com mais de 10 mil votos
+
+
+db.movie.aggregate(
+    
+    {$group: {_id : {gênero : "$genre", votos : "$votes"},
+        contagem_votos: {$count: {} }} },
+       // {$match: {contagem_votos : {$gte: 10000} } },
+        {$sort: {contagem_votos : -1 } }  
+)
+
+// não temos então uma quantidade de votos igual ou superior a 10k. 
+
+
+// e) Mostre os 10 filmes com maior elenco, título e quantidade do elenco
+
+db.movie.aggregate([
+    // {$project : {tamanho_elenco: {$size: "$actors" }}},
+    {$group: {_id: {título_filme : "$title", elenco: "$elenco" },
+        contagem_elenco: {$count: {} } } },
+        
+    {$project : { título_filme: "$_id.título_filme", elenco : "$_id.elenco" ,
+              contagem_elenco: 1, _id : 1 } },
+    {$sort: {contagem_elenco: -1} }
+    
+    
+]).limit(10)
