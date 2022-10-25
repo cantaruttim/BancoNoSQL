@@ -198,16 +198,17 @@ db.movie.aggregate(
 
 // e) Mostre os 10 filmes com maior elenco, título e quantidade do elenco
 
-db.movie.find()
-db.movie.aggregate( [
-    {$project : {tamanho_elenco: {$size: "$actors" }}}
-    {$group: { _id: { título: "$title", elenco: "$actors", 
-               contagem: {$count: {} }}},
-            {$match: {contagem_por_diretor : {$gte: 10} } },
-            {$sort: {contagem_genero: -1} }
-            ]
-)
-
+db.movie.aggregate([
+    // {$project : {tamanho_elenco: {$size: "$actors" }}},
+    {$group: {_id: {título_filme : "$title", elenco: "$elenco" },
+        contagem_elenco: {$count: {} } } },
+        
+    {$project : { título_filme: "$_id.título_filme", elenco : "$_id.elenco" ,
+              contagem_elenco: 1, _id : 1 } },
+    {$sort: {contagem_elenco: -1} }
+    
+    
+]).limit(10)
 
 
 
