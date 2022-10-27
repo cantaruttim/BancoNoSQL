@@ -156,20 +156,40 @@ db.movie.aggregate(
     {$group: { _id: { diretor: "$directors"}, 
                contagem_por_diretor: {$count: {} } 
             }},
-            {$match: {contagem_por_diretor : {$gte: 2} } },
+            {$match: {contagem_por_diretor : {$lte: 2} } }, // mostrando no máximo 2 diretores
             {$sort: {contagem_genero: -1} }
 )
 
+// correção
+
+db.movie.aggregate ([
+  { $match: {directors: {$ne: null}}}, 
+  { $group : { _id: {direcao: "$directors"},  
+              contagem_direcao : {$count : {} } } },
+{$project : {Direção: {$cond : {"if" : {"$eq": [{$size: "$_id.direcao" }, 1] }, // concatena se tiver mais de um elemento no vetor
+                               "then":  { "$arrayElemAt"  : ["$_id.direcao", 0]  },
+            "else": {"$concat": [ { "$arrayElemAt" : ["$_id.direcao", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.direcao", 1]  } ] } }}, 
+              contagem_direcao: 1, _id: 0} },
+            {$sort : { contagem_direcao: -1  } } ])
+
 // b) Mostre a contagem de filmes por país e idioma
 
-db.movie.aggregate(
+db.movie.aggregate([
     {$group: { _id: {país:  "$countries" , idioma: "$languages"},
               contagem_pais_idioma : {$count: {} } } },
               {$project : { país: "$_id.país", idioma : "$_id.idioma" ,
               contagem_país_idioma: 1, _id : 0 } },
-              {$sort: {contagem_pais_idioma : -1 } } 
+              {$sort: {contagem_pais_idioma : -1 } } ]) 
 
-) 
+// correção
+// o país e idioma estão dentro do vetor
+ db.movie.aggregate ([
+  { $group : { _id: {país: "$countries",idioma: "$languages"}
+              contagem_pais_idioma : {$count : {} } } },
+             {$sort : { contagem_pais_idioma: -1  } },
+{$project :{Pais: "$_id.país", Idioma: "$_id.idioma", contagem_pais_idioma: 1, _id: 0} } ]) 
+
 
 // c) Mostre a quantidade de filmes por gênero em que atuou o ator Robert de Niro.
 
@@ -181,9 +201,122 @@ db.movie.aggregate(
     {$group: {_id : {gênero : "$genre"},
         contagem_por_genero: {$count: {} }} },
         {$sort: {contagem_por_genero : -1 } }  )
+        
+// correção
 
-// d) Mostre o total de votos por Gênero de filme com mais de 10 mil votos
+db.movie.find({actors: /robert de niro/i}) // busca na base se existe Robert de Niro na base
+db.movie.aggregate ([
+  {$match: {actors: /robert de niro/i}},  // busca dentro do vetor
+  { $group : { _id: {genero: "$genre"},  
+              contagem_genero : {$count : {} } } },
+             {$sort : { contagem_genero: -1  } } ])  // exibe o conteúdo do vetor mas não extrai o conteudo
 
+
+// tirando o texto do vetor, combinando até 3 com case
+db.movie.aggregate ([
+  {$match: {actors: /robert de niro/i}},  
+  { $group : { _id: {genero: "$genre"},  
+              contagem_genero : {$count : {} } } },
+{$project : {Gênero: 
+              {$switch:   
+{ branches: [ { case: {"$eq": [{$size: "$_id.genero" }, 1] }, // testa o tamanho do vetor
+                then:  { "$arrayElemAt"  : ["$_id.genero", 0]  } }, // extrai o conteúdo do elemento 0
+              { case: {"$eq": [{$size: "$_id.genero" }, 2] },
+                then: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  } ] } }, // concatena o conteúdo do 0 com o 1
+               { case: {"$eq": [{$size: "$_id.genero" }, 3] },
+                then: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  },  "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 2]  } ] } } // concatena o conteúdo do 0, 1 e 2
+            ],
+            default: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  },  "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 2]  }," + outros" ] } }} , contagem_genero: 1, _id: 0} },
+           {$sort : { contagem_genero: -1  } } ])
+
+// d) Mostre o total de votos por Gênero de filme com mais de 10 mil votos -- correção
+
+// como converter o valor de formato americano para a nossa
+
+db.movie.aggregate([
+   { $addFields: { // a transformação vaipara um novo campo votação
+           votação: { $convert: { 
+               input: { $reduce: { input: { $split: ['$votes', ','] }, initialValue: '',
+                   in: { $concat: ['$$value', '$$this'] } } }, 
+                   to: "string", 
+                   onError: 0 , 
+                   onNull: null} }
+               }
+   }
+ ]).forEach ( function (doc)
+  {db.movie.save(doc) } )
+
+
+// verificando o datatype de um campo -- votação é string
+db.movie.aggregate ([
+  {"$project": {tipodado : {$type: "votes" } } }
+])
+
+
+// visualizando votes e votação
+db.movie.find().project({votes:1, votação:1, _id:0})
+// converter string para inteiro
+db.movie.find({votação: {$ne: ""}}).count() // 62058 não são nulos
+db.movie.find({votação: {$eq: null}).count() // 2 são nulos
+// convertendo para inteiro
+db.movie.find({votação: {$ne: ""}}).forEach ( function (doc) 
+  { doc.votação = parseInt (doc.votação) ;
+    db.movie.save(doc) } )
+
+//verificando   
+db.movie.aggregate ([
+{$group : {_id: null ,
+           contagem: {$count : {}} ,
+           maior_votação: {$max: "$votação"},
+           menor_votação: {$min: "$votação"},
+           media_votação: {$avg: "$votação"},
+           total_votos : {$sum: "$votação" }} }  ] )
+
+// 2 docs com NaN : not a number
+db.movie.find({votação:NaN})
+db.movie.updateMany({votação:NaN}, {$set: {votação: null}} )
+// finalmente a consulta
+db.movie.aggregate (
+  { $group : { _id: {genero: "$genre"},  
+              soma_genero : {$sum : "$votação" } } },
+{$project : {Gênero: {$cond : {"if" : {"$eq": [{$size: "$_id.genero" }, 1] },
+                               "then":  { "$arrayElemAt"  : ["$_id.genero", 0]  },
+            "else": {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  } ] } }}, 
+              soma_genero: 1, _id: 0} },
+ {$match: {soma_genero : {$gte: 1000000}}},
+            {$sort : { soma_genero: -1  } } )
+
+// usando case
+db.movie.aggregate ([
+  { $group : { _id: {genero: "$genre"},  
+              soma_genero : {$sum : "$votação" } } },
+{$project : {Gênero: 
+              {$switch:   
+{ branches: [ { case: {"$eq": [{$size: "$_id.genero" }, 1] },
+                then:  { "$arrayElemAt"  : ["$_id.genero", 0]  } },
+              { case: {"$eq": [{$size: "$_id.genero" }, 2] },
+                then: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  } ] } },
+               { case: {"$eq": [{$size: "$_id.genero" }, 3] },
+                then: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  },  "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 2]  } ] } }
+            ],
+            default: {"$concat": [ { "$arrayElemAt" : ["$_id.genero", 0]  }, "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 1]  },  "/", 
+                                  { "$arrayElemAt" : ["$_id.genero", 2]  }," + outros" ] } }} , soma_genero: 1, _id: 0} },
+   {$match: {soma_genero : {$gte: 1000000}}},
+            {$sort : { soma_genero: -1  } } ])
+
+
+
+// d) Mostre o total de votos por Gênero de filme com mais de 10 mil votos (minha resolução)
 
 db.movie.aggregate(
     
@@ -208,7 +341,77 @@ db.movie.aggregate([
     {$sort: {contagem_elenco: -1} }
     
     
-]).limit(10)
+]).limit(1000)
+
+// correção
+
+db.movie.aggregate( [
+    {$project : {tamanho_elenco: {$size: "$actors" }}},
+    {$group: {_id: "$tamanho_elenco",
+              count_tamanho: {$count: {}}}},
+    {$sort: {_id: -1}} ]) 
+ 
+ db.movie.aggregate([
+     {$project : {title: 1, tamanho_elenco: {$size: "$actors" }, _id:0 }
+    {$sort: {tamanho_elenco: -1}},
+    {$limit: 1000} 
+])
+
+
+// Aula do dia 27 de outubro de 2022
+db.actor.find()
+
+db.actor.find({name: /montenegro/i})
+db.actor.count()  // 297705
+
+
+// para saber o datatype -> string
+db.actor.aggregate( [ 
+        { "$project": { "dataType": {  "$type": "$date_of_birth"  } } } ])
+
+
+
+// $type : date-9, timestamp-17, string-2, double-1 , nulo-10
+db.actor.find({date_of_birth : {$type: 2 }}).count() //295908
+db.actor.find({date_of_birth : {$type: 10 }}).count()
+db.actor.find({date_of_birth : {$ne: null }}) //297705
+
+
+// levantamento
+
+// Neste primeiro comando filtramos somente o que é o tipo 2 (string) e verificamos se o comprimento é 10 (AAA / MM / DD)
+
+db.actor.find({date_of_birth : {$type: 2 }, 
+    "$expr": { "$eq": [ { "$strLenCP": "$date_of_birth" }, 10 ] } ).count() //100 029
+
+// aqui filtramos para saber quantos apresentam o '-' na data
+    
+db.actor.find({date_of_birth : {$type: 2 }, 
+    "$expr": { "$eq": [ { "$strLenCP": "$date_of_birth" }, 10 ] } , date_of_birth: /-/i } ).count()  // com o traço 99975
+
+
+// vamos procurar se o tamanho da string é 4 (para encontrarmos somente o ano)
+// e encontramos a data de nascimento por escrito
+
+db.actor.aggregate([
+    {$match: { date_of_birth: {$type: 2 } } },   
+    {$project: { ano_nascto : {
+                        $substr: ["$date_of_birth", 0, 4] } , date_of_birth: 1} },
+    {$match: { ano_nascto: { $in: [ /a/i, /e/i,/i/i,/o/i,/u/i, /bc/i ] }  }} ] ) //145
+
+
+
+/***** CONVERSÃO *****/
+// NASCIMENTO
+// 1o converte - data nascimento que tem 10 caracteres está no formato "AAAA-MM-DD" --93 mil convertidos
+db.actor.find({ date_of_birth : {$type: 2 }, 
+    "$expr": { "$eq": [ { "$strLenCP": "$date_of_birth" }, 10 ] } ,
+    date_of_birth: /-/i } ).forEach(function(doc) { 
+    doc.date_of_birth = ISODate(doc.date_of_birth);
+    print(doc.date_of_birth)
+    db.actor.save(doc); 
+    })
+db.actor.find({ date_of_birth : {$type: 9 }})  // 99975 - depois do tratamento abaixo 108418
 
 
 
