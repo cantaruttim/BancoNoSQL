@@ -392,6 +392,7 @@ db.actor.find({date_of_birth : {$type: 2 },
 
 // vamos procurar se o tamanho da string é 4 (para encontrarmos somente o ano)
 // e encontramos a data de nascimento por escrito
+// se convertermos esses valores textuais, dará erro
 
 db.actor.aggregate([
     {$match: { date_of_birth: {$type: 2 } } },   
@@ -399,11 +400,9 @@ db.actor.aggregate([
                         $substr: ["$date_of_birth", 0, 4] } , date_of_birth: 1} },
     {$match: { ano_nascto: { $in: [ /a/i, /e/i,/i/i,/o/i,/u/i, /bc/i ] }  }} ] ) //145
 
-
-
 /***** CONVERSÃO *****/
 // NASCIMENTO
-// 1o converte - data nascimento que tem 10 caracteres está no formato "AAAA-MM-DD" --93 mil convertidos
+// 1o converte - data nascimento que tem 10 caracteres está no formato "AAAA-MM-DD" -- 93 mil convertidos
 db.actor.find({ date_of_birth : {$type: 2 }, 
     "$expr": { "$eq": [ { "$strLenCP": "$date_of_birth" }, 10 ] } ,
     date_of_birth: /-/i } ).forEach(function(doc) { 
@@ -411,7 +410,203 @@ db.actor.find({ date_of_birth : {$type: 2 },
     print(doc.date_of_birth)
     db.actor.save(doc); 
     })
+    
 db.actor.find({ date_of_birth : {$type: 9 }})  // 99975 - depois do tratamento abaixo 108418
+
+// 2o converte - no ano aparece o mês - limpar para ficar nulo ou data atual NÃO DEU CERTO, dois erros de ano com 3 digitos
+db.actor.aggregate([
+    {$match: { date_of_birth: {$type: 2, $not: /BC/}  , 
+               "$expr": { "$gte": [ { "$strLenCP": "$date_of_birth" }, 4 ] } } },  //, date_of_birth: {$ne: null}
+    {$project: { ano_nascto : {
+                        $substr: ["$date_of_birth", 0, 4] } , date_of_birth: 1} },
+    {$match: { ano_nascto: { $nin: [ /a/i, /e/i,/i/i,/o/i,/u/i, /c/i, " ", /bc/i, "973 "] }}                                
+] ).forEach(function(doc) { 
+    novadata = doc.ano_nascto + "-01-01";
+    doc.date_of_birth = ISODate(novadata);
+    print(novadata)
+    db.actor.save(doc); 
+    })
+
+db.actor.find({date_of_birth: /973/i}) // aparece só 973 mas é DC
+
+
+// Conversão  data de obito
+db.actor.find({ date_of_death : {$type: 2 }, 
+    "$expr": { "$eq": [ { "$strLenCP": "$date_of_death" }, 10 ] } ,
+    date_of_death: /-/i } ).forEach(function(doc) { 
+    doc.date_of_death = ISODate(doc.date_of_death);
+    print(doc.date_of_death)
+    db.actor.save(doc); 
+    })
+
+// verificando
+db.actor.find({ date_of_birth : {$type: 9}}).count() // 108418
+db.actor.find({ date_of_death : {$type: 9 } }).count()  // 37169
+
+
+// Manipulando datas
+// O MongoDB converte as datas para BSON, e além disso trabalha com milissegundos, característico de sistemas UNIX
+// No relacional as datas são convertidas, nos sistemas ocidentais, para o calendário Juliano , por exemplo, o dia
+// de hoje 20/set/2021 é convertido na quantidade de dias que se passaram desde 01/01/00, vamos imaginar que essa conversão
+// resultasse 738945,67321
+// No MOngoDB. o início do calendário é 01/01/1970, isso significa que datas posteriores são positivas, e anteriores são negativas
+// Equivalente ao EXTRACT
+
+db.actor.aggregate(
+[  {$match: { date_of_birth: {$type: 9}}}, // filtrando só o que é data
+    { $project :
+    { name:1,
+      date_of_birth:1, 
+    ano: {$year: "$date_of_birth"},
+    mes: {$month: "$date_of_birth"},
+    dia: {$dayOfMonth: "$date_of_birth"},
+    hora: {$hour: "$date_of_birth"},
+    minuto: {$minute: "$date_of_birth"},
+    segundo: {$second: "$date_of_birth"},
+    milisegundo: {$millisecond: "$date_of_birth"},
+    dia_ano: {$dayOfYear: "$date_of_birth"},
+    dia_semana: {$dayOfWeek: "$date_of_birth"},
+    semana: {$week: "$date_of_birth"}  }  }   ]   )
+
+// cálculo da idade para quem já morreu
+db.actor.aggregate([
+ {$match: { date_of_birth : {$type: 9 }, date_of_death : {$type: 9 } }} ,
+ {$project: {
+       nascto :"$date_of_birth",
+       obito: "$date_of_death",
+       name: 1,
+       idademilis: { $subtract: ["$date_of_death", "$date_of_birth"  ] },     // subtrai uma data da outra mas retorna em milissegundos
+         idade: {
+             $divide: [ {$subtract: [ "$date_of_death", "$date_of_birth" ] }, // transforma de milissegundos para ano
+                        (365*24*60*60*1000)] } }
+ } ] )
+
+
+
+// maior idade 
+db.actor.aggregate([
+ {$match: { date_of_birth : {$type: 9 }, date_of_death : {$type: 9 } }} ,
+ {$project: {
+       nascto :"$date_of_birth",
+       obito: "$date_of_death",
+       name: 1,
+       idademilis: { $subtract: ["$date_of_death", "$date_of_birth"  ] },     
+         idade: {
+             $divide: [ {$subtract: [ "$date_of_death", "$date_of_birth" ] },
+                        (365*24*60*60*1000)] } }
+ },
+ {$sort : {idade: -1}},
+ {$limit: 100}
+ ] )
+ 
+ // filtrando as pessoas que faleceram no Brazil
+ 
+ db.actor.aggregate([
+ {$match: { date_of_birth : {$type: 9 }, date_of_death : {$type: 9 }, place_of_birth: /brazil/i }} ,
+ {$project: {
+       nascto :"$date_of_birth",
+       obito: "$date_of_death",
+       name: 1,
+       idademilis: { $subtract: ["$date_of_death", "$date_of_birth"  ] },     
+         idade: {
+             $divide: [ {$subtract: [ "$date_of_death", "$date_of_birth" ] },
+                        (365*24*60*60*1000)] } }
+ },
+ {$sort : {idade: -1}},
+ {$limit: 3}
+ ] ) 
+
+
+/************************************************
+Índices
+************************************************/
+//simples
+db.movie.find()
+db.movie.createIndex( { title: 1 } )
+db.movie.createIndex( { description: 1 } )
+
+//composto
+db.movie.aggregate( [ 
+        { "$project": { "dataType": {  "$type": "$ano_lancamento"  } } } ]
+)
+
+// convertendo ano de lancamento
+db.movie.find({ano_lancamento:{$ne: ""}}).count() // 62058
+
+db.movie.find({ano_lancamento:{$ne: ""}}).forEach( function (doc) {
+doc.ano_lancamento = parseInt(doc.ano_lancamento);
+print(doc.ano_lancamento)
+db.movie.save(doc) });
+
+db.movie.createIndex(
+  { title: 1, ano_lancamento: -1 } ,
+  { name: "titulo_ano" })
+  
+// tentativa de converter a duração - runtime
+db.movie.find()
+// funcionou
+db.movie.updateMany({}, {$set : {duracao: null}})
+db.movie.updateMany({runtime: {$ne: null}},
+[ { $set: {duracao: {$substr: ["$runtime",0, { $indexOfBytes : ["$runtime", " min"] }] }  } } ] )
+// $indexOfBytes : retorna a posição da primeira ocorrência da substring dentro da string
+// aqui vamos pegar o pedaço da string que vai da posição 0 até aparecer min, ou seja o número da duração
+// embaixo convertemos para inteiro
+
+// convertendo a coluna duracao para numérico
+
+db.movie.find({duracao:{$ne: null}}).forEach( function (doc) {
+doc.duracao = parseInt(doc.duracao);
+//print(doc.duracao)
+db.movie.save(doc) });
+
+db.movie.find({runtime: {$eq: null}}) // 12165 nulos
+
+// aplicando função de grupo
+// maior e menor (max e min) 
+db.movie.aggregate ( 
+    {$group : {_id: null,
+              contagem : {$count: {} },
+              menor_duração : {$min: "$duracao"},
+              maior_duração : {$max: "$duracao"},
+              media_duração: {$avg: "$duracao"},
+    }} ) 
+
+// actor na altura
+// para saber o datatype da altura -> string
+db.actor.aggregate( [ 
+        { "$project": { "dataType": {  "$type": "$height"  } } } ]
+)
+
+// funções de grupo na altura
+db.actor.aggregate ( 
+    {$match: {height: {$ne : null}}}, 
+    {$group : {_id: null,
+              contagem : {$count: {} },
+              menor_altura : {$min: "$height"},
+              maior_altura : {$max: "$height"},
+              media_altura: {$avg: "$height"}    }} ) 
+
+// começando a tratar nulos
+db.actor.aggregate ( 
+    {$match: {height: {$ne : null}}}, 
+    {$group : {_id: "$height",
+              contagem : {$count: {} }
+              }},
+{$sort: {contagem: -1}}) 
+
+db.actor.find({height: {$lt: 21}}) // 21 docs com altura menor que 21
+
+db.movie.aggregate ( [
+    {$match: {"countries": /brazil/i, "genre": /comedy/i} },
+    { $lookup:
+      {from: "actor", 
+       localField: "actors",
+       foreignField: "name",
+       as: "Elenco" } }
+    ])
+
+
+
 
 
 
